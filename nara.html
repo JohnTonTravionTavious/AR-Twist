@@ -7,7 +7,6 @@
 
   <script src="https://cdn.8thwall.com/web/aframe/8frame-1.3.0.min.js"></script>
   <script src="https://cdn.8thwall.com/web/xrextras/xrextras.js"></script>
-
   <script async src="engine/xr.js" data-preload-chunks="slam"></script>
 
   <script>
@@ -28,9 +27,32 @@
     };
     window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded);
   </script>
+
+  <script>
+    AFRAME.registerComponent('reveal-zone', {
+      schema: {
+        color: {type: 'color', default: '#ff0000'},
+        label: {type: 'string', default: 'zone'}
+      },
+      init: function () {
+        const el = this.el;
+        const {color, label} = this.data;
+        el.addEventListener('click', () => {
+          console.log('[reveal-zone] tapped:', label);
+          el.setAttribute('material', 'opacity', 0.75);
+          clearTimeout(el._flashTimer);
+          el._flashTimer = setTimeout(() => {
+            el.setAttribute('material', 'opacity', 0.25);
+          }, 600);
+        });
+      }
+    });
+  </script>
 </head>
 <body style="margin:0;overflow:hidden;">
   <a-scene
+    cursor="rayOrigin: mouse"
+    raycaster="objects: .clickable"
     xrextras-gesture-detector
     xrextras-almost-there
     xrextras-loading
@@ -41,30 +63,38 @@
 
     <xrextras-named-image-target name="nara-poster">
 
-      <a-text
-        value="Knife Behind Back"
-        color="#3d2817"
-        align="center"
-        position="0 1.4 0"
-        width="3">
-      </a-text>
-
-      <a-text
-        value="tracking OK"
-        color="#a02020"
-        align="center"
-        position="0 1.0 0"
-        width="1.5">
-      </a-text>
-
-      <a-ring
-        color="#a02020"
-        position="0 0.2 0"
+      <a-plane
+        class="clickable"
+        id="zone-hair"
+        position="0 0.01 -0.35"
         rotation="-90 0 0"
-        radius-inner="0.6"
-        radius-outer="0.65"
-        animation="property: rotation; to: -90 0 360; loop: true; dur: 6000; easing: linear">
-      </a-ring>
+        width="0.45" height="0.20"
+        color="#e6c200"
+        material="transparent: true; opacity: 0.25; side: double"
+        reveal-zone="color: #e6c200; label: hair">
+      </a-plane>
+
+      <a-plane
+        class="clickable"
+        id="zone-face"
+        position="0 0.01 -0.10"
+        rotation="-90 0 0"
+        width="0.35" height="0.18"
+        color="#ff7a1a"
+        material="transparent: true; opacity: 0.25; side: double"
+        reveal-zone="color: #ff7a1a; label: face">
+      </a-plane>
+
+      <a-plane
+        class="clickable"
+        id="zone-hand"
+        position="-0.20 0.01 0.25"
+        rotation="-90 0 0"
+        width="0.22" height="0.28"
+        color="#d62828"
+        material="transparent: true; opacity: 0.25; side: double"
+        reveal-zone="color: #d62828; label: hand-knife">
+      </a-plane>
 
     </xrextras-named-image-target>
 
