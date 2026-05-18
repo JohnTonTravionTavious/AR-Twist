@@ -60,7 +60,11 @@
     xrweb="disableWorldTracking: true">
 
     <a-assets>
-      <img id="nara-base" src="assets/Targets/nara_knife_behind_back.jpg" crossorigin="anonymous">
+      <!-- Tracking still references the opaque JPEG via imageTargetData.
+           Overlay uses the alpha-cleaned PNG (cream background flood-filled
+           to transparent) so the printed paper's natural background shows
+           through and digital/print don't clash. -->
+      <img id="nara-base" src="assets/Targets/nara_knife_behind_back_transparent.png" crossorigin="anonymous">
     </a-assets>
 
     <a-camera position="0 4 10"></a-camera>
@@ -100,12 +104,12 @@
         reveal-zone="color: #ff7a1a; label: face">
       </a-plane>
 
-      <!-- Knife reveal zone — left side of the dress.
-           Pixel center (320, 620), size 220x260. -->
+      <!-- Knife reveal zone — left side of the dress, shifted ~45 px down.
+           Pixel center (320, 665), size 220x260. -->
       <a-plane
         class="clickable"
         id="zone-hand"
-        position="-0.139 -0.137 0.007"
+        position="-0.139 -0.187 0.007"
         width="0.248"
         height="0.293"
         color="#d62828"
