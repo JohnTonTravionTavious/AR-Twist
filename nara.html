@@ -27,74 +27,54 @@
     };
     window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded);
   </script>
-
-  <script>
-    AFRAME.registerComponent('reveal-zone', {
-      schema: {
-        color: {type: 'color', default: '#ff0000'},
-        label: {type: 'string', default: 'zone'}
-      },
-      init: function () {
-        const el = this.el;
-        const {color, label} = this.data;
-        el.addEventListener('click', () => {
-          console.log('[reveal-zone] tapped:', label);
-          el.setAttribute('material', 'opacity', 0.75);
-          clearTimeout(el._flashTimer);
-          el._flashTimer = setTimeout(() => {
-            el.setAttribute('material', 'opacity', 0.25);
-          }, 600);
-        });
-      }
-    });
-  </script>
 </head>
 <body style="margin:0;overflow:hidden;">
   <a-scene
-    cursor="rayOrigin: mouse"
-    raycaster="objects: .clickable"
     xrextras-gesture-detector
     xrextras-almost-there
     xrextras-loading
     xrextras-runtime-error
     xrweb="disableWorldTracking: true">
 
+    <a-assets>
+      <img id="nara-base" src="assets/Targets/nara_knife_behind_back.jpg" crossorigin="anonymous">
+    </a-assets>
+
     <a-camera position="0 4 10"></a-camera>
 
     <xrextras-named-image-target name="nara-poster">
 
-      <a-plane
-        class="clickable"
-        id="zone-hair"
-        position="0 0.01 -0.35"
-        rotation="-90 0 0"
-        width="0.45" height="0.20"
-        color="#e6c200"
-        material="transparent: true; opacity: 0.25; side: double"
-        reveal-zone="color: #e6c200; label: hair">
-      </a-plane>
+      <!--
+        STEP A — alignment calibration.
+        Digital Nara overlay at 60% opacity over the tracked print.
+        Goal: confirm whether the base image aligns 1:1 with the printed image,
+        and identify which 3D axis corresponds to the painting's vertical axis
+        (top-of-painting → bottom-of-painting).
 
-      <a-plane
-        class="clickable"
-        id="zone-face"
-        position="0 0.01 -0.10"
+        Trying convention: image lies flat in XZ plane (Y up perpendicular).
+        Width 1.0, height = aspect ratio 998/886 = 1.126.
+      -->
+      <a-image
+        src="#nara-base"
+        width="1.0"
+        height="1.126"
+        position="0 0.001 0"
         rotation="-90 0 0"
-        width="0.35" height="0.18"
-        color="#ff7a1a"
-        material="transparent: true; opacity: 0.25; side: double"
-        reveal-zone="color: #ff7a1a; label: face">
-      </a-plane>
+        material="transparent: true; opacity: 0.6; side: double">
+      </a-image>
 
-      <a-plane
-        class="clickable"
-        id="zone-hand"
-        position="-0.20 0.01 0.25"
-        rotation="-90 0 0"
-        width="0.22" height="0.28"
-        color="#d62828"
-        material="transparent: true; opacity: 0.25; side: double"
-        reveal-zone="color: #d62828; label: hand-knife">
-      </a-plane>
+      <!--
+        Axis markers — small colored boxes at each "corner" of my assumed coordinate system.
+        Helps identify which 3D axis matches the painting's vertical/horizontal.
+        - RED   = +X (assumed: image right)
+        - GREEN = -X (assumed: image left)
+        - BLUE  = +Z (assumed: image bottom — toward viewer)
+        - YELLOW= -Z (assumed: image top — away from viewer)
+      -->
+      <a-box position=" 0.5 0.02  0"    width="0.06" height="0.04" depth="0.06" color="red"></a-box>
+      <a-box position="-0.5 0.02  0"    width="0.06" height="0.04" depth="0.06" color="green"></a-box>
+      <a-box position=" 0   0.02  0.56" width="0.06" height="0.04" depth="0.06" color="blue"></a-box>
+      <a-box position=" 0   0.02 -0.56" width="0.06" height="0.04" depth="0.06" color="yellow"></a-box>
 
     </xrextras-named-image-target>
 
