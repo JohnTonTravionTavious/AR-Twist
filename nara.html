@@ -100,17 +100,18 @@
         reveal-zone="color: #ff7a1a; label: face">
       </a-plane>
 
-      <!-- Hand zone (character's left hand — hidden behind body, the one holding the knife).
-           Pixel center (590, 620) on the image right side, at hip level. -->
+      <!-- Knife reveal zone — placed on the red dress for easy targeting.
+           Tapping the dress reveals the hidden knife held by the character's
+           left hand (behind her back). Pixel center (443, 600), size 280x240. -->
       <a-plane
         class="clickable"
         id="zone-hand"
-        position="0.166 -0.137 0.007"
-        width="0.169"
-        height="0.180"
+        position="0 -0.114 0.007"
+        width="0.316"
+        height="0.271"
         color="#d62828"
         material="transparent: true; opacity: 0.30; side: double"
-        reveal-zone="color: #d62828; label: hand-knife">
+        reveal-zone="color: #d62828; label: dress-knife">
       </a-plane>
 
     </xrextras-named-image-target>
