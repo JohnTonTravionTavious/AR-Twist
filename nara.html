@@ -27,9 +27,32 @@
     };
     window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded);
   </script>
+
+  <script>
+    AFRAME.registerComponent('reveal-zone', {
+      schema: {
+        color: {type: 'color', default: '#ff0000'},
+        label: {type: 'string', default: 'zone'}
+      },
+      init: function () {
+        const el = this.el;
+        const {color, label} = this.data;
+        el.addEventListener('click', () => {
+          console.log('[reveal-zone] tapped:', label);
+          el.setAttribute('material', 'opacity', 0.75);
+          clearTimeout(el._flashTimer);
+          el._flashTimer = setTimeout(() => {
+            el.setAttribute('material', 'opacity', 0.30);
+          }, 600);
+        });
+      }
+    });
+  </script>
 </head>
 <body style="margin:0;overflow:hidden;">
   <a-scene
+    cursor="rayOrigin: mouse"
+    raycaster="objects: .clickable"
     xrextras-gesture-detector
     xrextras-almost-there
     xrextras-loading
@@ -44,34 +67,50 @@
 
     <xrextras-named-image-target name="nara-poster">
 
-      <!--
-        Step A.3 — CORRECTED axis convention.
-        Diagnosed from user screenshot: 8th Wall image-target local frame is
-        image-plane = XY, perpendicular = Z (toward viewer).
-        => No rotation on overlay. Default A-Frame plane (XY, normal +Z) already
-        matches the image plane.
-        Width 1.0, height 1.126 = aspect ratio 998/886.
-      -->
+      <!-- Step B — Base overlay full opacity + 3 reveal zones at pixel-derived positions. -->
       <a-image
         src="#nara-base"
         width="1.0"
         height="1.126"
         position="0 0 0.001"
-        material="transparent: true; opacity: 0.6; side: double">
+        material="opacity: 1.0; side: double">
       </a-image>
 
-      <!--
-        Axis markers (CORRECTED):
-        - RED   = +X (image right)
-        - GREEN = -X (image left)
-        - BLUE  = +Y (image top — above hair)
-        - YELLOW= -Y (image bottom — below feet)
-        Slightly in front of image plane (Z=0.005) so they're visible.
-      -->
-      <a-box position=" 0.5    0     0.005" width="0.06" height="0.06" depth="0.04" color="red"></a-box>
-      <a-box position="-0.5    0     0.005" width="0.06" height="0.06" depth="0.04" color="green"></a-box>
-      <a-box position=" 0      0.563 0.005" width="0.06" height="0.06" depth="0.04" color="blue"></a-box>
-      <a-box position=" 0     -0.563 0.005" width="0.06" height="0.06" depth="0.04" color="yellow"></a-box>
+      <!-- Hair zone (top of head, brown bob) -->
+      <a-plane
+        class="clickable"
+        id="zone-hair"
+        position="-0.015 0.332 0.007"
+        width="0.564"
+        height="0.305"
+        color="#e6c200"
+        material="transparent: true; opacity: 0.30; side: double"
+        reveal-zone="color: #e6c200; label: hair">
+      </a-plane>
+
+      <!-- Face zone (angry eyes + mouth) -->
+      <a-plane
+        class="clickable"
+        id="zone-face"
+        position="-0.015 0.123 0.007"
+        width="0.361"
+        height="0.180"
+        color="#ff7a1a"
+        material="transparent: true; opacity: 0.30; side: double"
+        reveal-zone="color: #ff7a1a; label: face">
+      </a-plane>
+
+      <!-- Hand zone (visible right hand area — where the knife reveal will appear) -->
+      <a-plane
+        class="clickable"
+        id="zone-hand"
+        position="0.081 -0.227 0.007"
+        width="0.169"
+        height="0.180"
+        color="#d62828"
+        material="transparent: true; opacity: 0.30; side: double"
+        reveal-zone="color: #d62828; label: hand-knife">
+      </a-plane>
 
     </xrextras-named-image-target>
 
