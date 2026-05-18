@@ -1,12 +1,20 @@
 """
-One-shot script: flood-fill the cream background of Nara.png from the
-four corners and save the result as a transparent PNG for overlay use.
+One-shot script: remove the cream background from Nara.png and save as
+a transparent PNG for overlay use.
+
+Two-pass approach to kill edge fringes:
+  1. Flood-fill from 4 corners with threshold 50 (more aggressive than
+     the 35 first try, which left a halo of near-cream fringe pixels).
+     Threshold 50 is still safely below the distance to skin (~54) so
+     the figure stays intact.
+  2. Erode the alpha mask by 1 pixel (MinFilter size 3) to clean up any
+     remaining 1-pixel-wide fringe along the figure boundary.
 
 The original JPEG (with the cream background) stays as the 8th Wall image
 target — its uniform background is fine for tracking; only the overlay
 needs transparency.
 """
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 from pathlib import Path
 
 src = Path(r"C:\Users\lenot\Downloads\Nara.png")
@@ -15,13 +23,14 @@ dst = Path(r"C:\Users\lenot\Documents\AR-Twist\assets\Targets\nara_knife_behind_
 img = Image.open(src).convert("RGBA")
 w, h = img.size
 
-# Flood-fill from each corner with a moderate color threshold.
-# Tolerance 35 picks up the slight variation in the cream background
-# (from ~(243,238,219) at corners to subtle gradient) without eating the
-# figure (skin is ~(242,210,169) — well outside tolerance from cream).
 seeds = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
 for seed in seeds:
-    ImageDraw.floodfill(img, seed, (255, 255, 255, 0), thresh=35)
+    ImageDraw.floodfill(img, seed, (255, 255, 255, 0), thresh=50)
+
+# Erode the alpha channel by 1 pixel to shave the remaining fringe.
+r, g, b, a = img.split()
+a = a.filter(ImageFilter.MinFilter(3))
+img.putalpha(a)
 
 img.save(dst, "PNG", optimize=True)
 
