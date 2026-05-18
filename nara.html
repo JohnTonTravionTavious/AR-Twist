@@ -100,11 +100,12 @@
         reveal-zone="color: #ff7a1a; label: face">
       </a-plane>
 
-      <!-- Hand zone (visible right hand area — where the knife reveal will appear) -->
+      <!-- Hand zone (character's left hand — hidden behind body, the one holding the knife).
+           Pixel center (590, 620) on the image right side, at hip level. -->
       <a-plane
         class="clickable"
         id="zone-hand"
-        position="0.081 -0.227 0.007"
+        position="0.166 -0.137 0.007"
         width="0.169"
         height="0.180"
         color="#d62828"
