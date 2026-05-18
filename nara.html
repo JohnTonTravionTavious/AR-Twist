@@ -45,42 +45,33 @@
     <xrextras-named-image-target name="nara-poster">
 
       <!--
-        STEP A — alignment calibration.
-        Digital Nara overlay at 60% opacity over the tracked print.
-        Goal: confirm whether the base image aligns 1:1 with the printed image,
-        and identify which 3D axis corresponds to the painting's vertical axis
-        (top-of-painting → bottom-of-painting).
-
-        Trying convention: image lies flat in XZ plane (Y up perpendicular).
-        Width 1.0, height = aspect ratio 998/886 = 1.126.
-      -->
-      <!--
-        Trying rotation -90 0 90 = lay flat (-90 around X) + roll 90 around local Z
-        to un-rotate the texture by 90 degrees on the plane. If image is still
-        90 deg off, swap to -90 0 -90. Width/height swapped to 1.126 x 1.0 since
-        the image now spins so its long axis lies along world X.
+        Step A.3 — CORRECTED axis convention.
+        Diagnosed from user screenshot: 8th Wall image-target local frame is
+        image-plane = XY, perpendicular = Z (toward viewer).
+        => No rotation on overlay. Default A-Frame plane (XY, normal +Z) already
+        matches the image plane.
+        Width 1.0, height 1.126 = aspect ratio 998/886.
       -->
       <a-image
         src="#nara-base"
-        width="1.126"
-        height="1.0"
-        position="0 0.001 0"
-        rotation="-90 0 90"
+        width="1.0"
+        height="1.126"
+        position="0 0 0.001"
         material="transparent: true; opacity: 0.6; side: double">
       </a-image>
 
       <!--
-        Axis markers — small colored boxes at each "corner" of my assumed coordinate system.
-        Helps identify which 3D axis matches the painting's vertical/horizontal.
-        - RED   = +X (assumed: image right)
-        - GREEN = -X (assumed: image left)
-        - BLUE  = +Z (assumed: image bottom — toward viewer)
-        - YELLOW= -Z (assumed: image top — away from viewer)
+        Axis markers (CORRECTED):
+        - RED   = +X (image right)
+        - GREEN = -X (image left)
+        - BLUE  = +Y (image top — above hair)
+        - YELLOW= -Y (image bottom — below feet)
+        Slightly in front of image plane (Z=0.005) so they're visible.
       -->
-      <a-box position=" 0.5 0.02  0"    width="0.06" height="0.04" depth="0.06" color="red"></a-box>
-      <a-box position="-0.5 0.02  0"    width="0.06" height="0.04" depth="0.06" color="green"></a-box>
-      <a-box position=" 0   0.02  0.56" width="0.06" height="0.04" depth="0.06" color="blue"></a-box>
-      <a-box position=" 0   0.02 -0.56" width="0.06" height="0.04" depth="0.06" color="yellow"></a-box>
+      <a-box position=" 0.5    0     0.005" width="0.06" height="0.06" depth="0.04" color="red"></a-box>
+      <a-box position="-0.5    0     0.005" width="0.06" height="0.06" depth="0.04" color="green"></a-box>
+      <a-box position=" 0      0.563 0.005" width="0.06" height="0.06" depth="0.04" color="blue"></a-box>
+      <a-box position=" 0     -0.563 0.005" width="0.06" height="0.06" depth="0.04" color="yellow"></a-box>
 
     </xrextras-named-image-target>
 
