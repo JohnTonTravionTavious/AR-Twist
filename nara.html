@@ -54,12 +54,18 @@
         Trying convention: image lies flat in XZ plane (Y up perpendicular).
         Width 1.0, height = aspect ratio 998/886 = 1.126.
       -->
+      <!--
+        Trying rotation -90 0 90 = lay flat (-90 around X) + roll 90 around local Z
+        to un-rotate the texture by 90 degrees on the plane. If image is still
+        90 deg off, swap to -90 0 -90. Width/height swapped to 1.126 x 1.0 since
+        the image now spins so its long axis lies along world X.
+      -->
       <a-image
         src="#nara-base"
-        width="1.0"
-        height="1.126"
+        width="1.126"
+        height="1.0"
         position="0 0.001 0"
-        rotation="-90 0 0"
+        rotation="-90 0 90"
         material="transparent: true; opacity: 0.6; side: double">
       </a-image>
 
