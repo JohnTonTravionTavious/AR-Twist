@@ -28,22 +28,101 @@
     window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded);
   </script>
 
+  <!-- Chromakey shader (taken from b2renger example 05, MIT-licensed).
+       Renders any pixel matching `color` as transparent on a video texture. -->
   <script>
-    AFRAME.registerComponent('reveal-zone', {
+    AFRAME.registerShader('chromakey', {
       schema: {
-        color: {type: 'color', default: '#ff0000'},
-        label: {type: 'string', default: 'zone'}
+        src: {type: 'map'},
+        color: {type: 'color', default: '#00FF00'},
+        chroma: {type: 'bool', default: true},
+        transparent: {default: true}
+      },
+      init: function (data) {
+        const videoEl = data.src;
+        if (!videoEl) return;
+        const videoTexture = new THREE.VideoTexture(videoEl);
+        videoTexture.minFilter = THREE.LinearFilter;
+        this.material = new THREE.ShaderMaterial({
+          transparent: data.transparent,
+          uniforms: {
+            chroma: {type: 'b', value: data.chroma},
+            color: {type: 'c', value: new THREE.Color(data.color)},
+            myTexture: {type: 't', value: videoTexture}
+          },
+          vertexShader: this.vertexShader,
+          fragmentShader: this.fragmentShader
+        });
+      },
+      update: function (data) {
+        this.material.uniforms.chroma.value = data.chroma;
+        this.material.uniforms.color.value.set(data.color);
+        this.material.transparent = data.transparent;
+      },
+      vertexShader: [
+        'varying vec2 vUv;',
+        'void main(void) {',
+        '  vUv = uv;',
+        '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'uniform sampler2D myTexture;',
+        'uniform vec3 color;',
+        'uniform bool chroma;',
+        'varying vec2 vUv;',
+        'void main(void) {',
+        '  vec3 tColor = texture2D(myTexture, vUv).rgb;',
+        '  float a = 1.0;',
+        '  if (chroma) {',
+        '    a = (length(tColor - color) - 0.75) * 7.0;',
+        '  }',
+        '  gl_FragColor = vec4(tColor, a);',
+        '}'
+      ].join('\n')
+    });
+  </script>
+
+  <!-- Weapon cycler: single tap zone cycles through N weapon videos.
+       State 0 = nothing visible. State k>0 = weapon k playing on loop.
+       Tap interrupts current weapon and jumps to the next.
+       Wraps back to state 0 after the last weapon. -->
+  <script>
+    AFRAME.registerComponent('weapon-cycler', {
+      schema: {
+        weaponIds: {type: 'array'},
+        videoIds:  {type: 'array'}
       },
       init: function () {
-        const el = this.el;
-        const {color, label} = this.data;
-        el.addEventListener('click', () => {
-          console.log('[reveal-zone] tapped:', label);
-          el.setAttribute('material', 'opacity', 0.75);
-          clearTimeout(el._flashTimer);
-          el._flashTimer = setTimeout(() => {
-            el.setAttribute('material', 'opacity', 0.30);
-          }, 600);
+        this.state = 0;
+        this.weapons = this.data.weaponIds.map(id => document.getElementById(id));
+        this.videos  = this.data.videoIds.map(id => document.getElementById(id));
+
+        // Pause all videos at start; they'll only play when shown.
+        this.videos.forEach(v => { try { v.pause(); v.currentTime = 0; } catch (e) {} });
+
+        this.el.addEventListener('click', () => {
+          // Hide + pause currently-visible weapon (if any).
+          if (this.state > 0) {
+            const i = this.state - 1;
+            this.weapons[i].setAttribute('visible', false);
+            try { this.videos[i].pause(); } catch (e) {}
+          }
+
+          // Advance: 0 -> 1 -> ... -> N -> 0 -> ...
+          this.state = (this.state + 1) % (this.weapons.length + 1);
+
+          if (this.state === 0) {
+            console.log('[weapon-cycler] state: 0 (nothing — cycle reset)');
+          } else {
+            const i = this.state - 1;
+            this.weapons[i].setAttribute('visible', true);
+            try {
+              this.videos[i].currentTime = 0;
+              this.videos[i].play().catch(e => console.warn('[weapon-cycler] play() rejected:', e));
+            } catch (e) { console.warn('[weapon-cycler] video error:', e); }
+            console.log('[weapon-cycler] state:', this.state, '→', this.weapons[i].id);
+          }
         });
       }
     });
@@ -60,18 +139,22 @@
     xrweb="disableWorldTracking: true">
 
     <a-assets>
-      <!-- Tracking still references the opaque JPEG via imageTargetData.
-           Overlay uses the alpha-cleaned PNG (cream background flood-filled
-           to transparent) so the printed paper's natural background shows
-           through and digital/print don't clash. -->
       <img id="nara-base" src="assets/Targets/nara_knife_behind_back_transparent.png" crossorigin="anonymous">
+
+      <!-- PLACEHOLDER weapon videos (existing repo assets). Replace with your
+           own MP4s when ready. Each must have its chroma background set to
+           a single solid color matching the `color` attribute on the matching
+           <a-entity> below. -->
+      <video id="weapon-1-vid" src="assets/mask_green_back.mp4" loop muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-2-vid" src="assets/mask_blue_back.mp4"  loop muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-3-vid" src="assets/mask_red_back.mp4"   loop muted playsinline crossorigin="anonymous"></video>
     </a-assets>
 
     <a-camera position="0 4 10"></a-camera>
 
     <xrextras-named-image-target name="nara-poster">
 
-      <!-- Step B — Base overlay full opacity + 3 reveal zones at pixel-derived positions. -->
+      <!-- Base Nara overlay (transparent PNG) -->
       <a-image
         src="#nara-base"
         width="1.0"
@@ -80,41 +163,43 @@
         material="opacity: 1.0; side: double">
       </a-image>
 
-      <!-- Hair zone (top of head, brown bob) -->
-      <a-plane
-        class="clickable"
-        id="zone-hair"
-        position="-0.015 0.332 0.007"
-        width="0.564"
-        height="0.305"
-        color="#e6c200"
-        material="transparent: true; opacity: 0.30; side: double"
-        reveal-zone="color: #e6c200; label: hair">
-      </a-plane>
+      <!-- Weapon planes — full-frame size matching Nara base for pixel-accurate
+           positioning inside the video frame. All initially hidden. -->
+      <a-entity
+        id="weapon-1"
+        visible="false"
+        geometry="primitive: plane; width: 1.0; height: 1.126"
+        material="shader: chromakey; src: #weapon-1-vid; chroma: true; color: #00FF00"
+        position="0 0 0.005">
+      </a-entity>
 
-      <!-- Face zone (angry eyes + mouth) -->
-      <a-plane
-        class="clickable"
-        id="zone-face"
-        position="-0.015 0.123 0.007"
-        width="0.361"
-        height="0.180"
-        color="#ff7a1a"
-        material="transparent: true; opacity: 0.30; side: double"
-        reveal-zone="color: #ff7a1a; label: face">
-      </a-plane>
+      <a-entity
+        id="weapon-2"
+        visible="false"
+        geometry="primitive: plane; width: 1.0; height: 1.126"
+        material="shader: chromakey; src: #weapon-2-vid; chroma: true; color: #0000FF"
+        position="0 0 0.005">
+      </a-entity>
 
-      <!-- Knife reveal zone — left side of the dress, shifted ~45 px down.
-           Pixel center (320, 665), size 220x260. -->
+      <a-entity
+        id="weapon-3"
+        visible="false"
+        geometry="primitive: plane; width: 1.0; height: 1.126"
+        material="shader: chromakey; src: #weapon-3-vid; chroma: true; color: #FF0000"
+        position="0 0 0.005">
+      </a-entity>
+
+      <!-- Single tap zone on the left side of the dress.
+           Tap cycles: nothing → weapon-1 → weapon-2 → weapon-3 → nothing → ... -->
       <a-plane
         class="clickable"
-        id="zone-hand"
-        position="-0.139 -0.187 0.007"
+        id="tap-zone"
+        position="-0.139 -0.187 0.010"
         width="0.248"
         height="0.293"
         color="#d62828"
         material="transparent: true; opacity: 0.30; side: double"
-        reveal-zone="color: #d62828; label: dress-knife">
+        weapon-cycler="weaponIds: weapon-1, weapon-2, weapon-3; videoIds: weapon-1-vid, weapon-2-vid, weapon-3-vid">
       </a-plane>
 
     </xrextras-named-image-target>
