@@ -210,8 +210,7 @@
            tightened to preserve dark parts of the weapons. -->
       <video id="weapon-1-vid" src="assets/weapons/knife.mp4" muted playsinline crossorigin="anonymous"></video>
       <video id="weapon-2-vid" src="assets/weapons/gun.mp4"   muted playsinline crossorigin="anonymous"></video>
-      <!-- Placeholder for weapon 3 (red bg, repo asset). Will be replaced. -->
-      <video id="weapon-3-vid" src="assets/mask_red_back.mp4" muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-3-vid" src="assets/weapons/tnt.mp4" muted playsinline crossorigin="anonymous"></video>
     </a-assets>
 
     <a-camera position="0 4 10"></a-camera>
@@ -250,8 +249,8 @@
         id="weapon-3"
         visible="false"
         geometry="primitive: plane; width: 1.0; height: 1.126"
-        material="shader: chromakey; src: #weapon-3-vid; chroma: true; color: #FF0000"
-        position="0 0 0.005">
+        material="shader: chromakey; src: #weapon-3-vid; chroma: true; color: #000000; threshold: 0.15; falloff: 20"
+        position="-0.0198 0.0858 0.005">
       </a-entity>
 
       <a-plane
