@@ -28,15 +28,20 @@
     window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded);
   </script>
 
-  <!-- Chromakey shader (taken from b2renger example 05, MIT-licensed).
-       Renders any pixel matching `color` as transparent on a video texture. -->
+  <!-- Chromakey shader — parameterized threshold + falloff (extended from
+       b2renger example 05 which hardcoded 0.75 + 7.0).
+       For a black background (0,0,0) the original 0.75 threshold ate dark
+       grays out of the weapons too; threshold 0.10 + falloff 20 cleanly
+       removes pure-black background only. -->
   <script>
     AFRAME.registerShader('chromakey', {
       schema: {
-        src: {type: 'map'},
-        color: {type: 'color', default: '#00FF00'},
-        chroma: {type: 'bool', default: true},
-        transparent: {default: true}
+        src:        {type: 'map'},
+        color:      {type: 'color',  default: '#00FF00'},
+        chroma:     {type: 'bool',   default: true},
+        threshold:  {type: 'number', default: 0.75},
+        falloff:    {type: 'number', default: 7.0},
+        transparent:{default: true}
       },
       init: function (data) {
         const videoEl = data.src;
@@ -46,8 +51,10 @@
         this.material = new THREE.ShaderMaterial({
           transparent: data.transparent,
           uniforms: {
-            chroma: {type: 'b', value: data.chroma},
-            color: {type: 'c', value: new THREE.Color(data.color)},
+            chroma:    {type: 'b', value: data.chroma},
+            color:     {type: 'c', value: new THREE.Color(data.color)},
+            threshold: {type: 'f', value: data.threshold},
+            falloff:   {type: 'f', value: data.falloff},
             myTexture: {type: 't', value: videoTexture}
           },
           vertexShader: this.vertexShader,
@@ -55,9 +62,11 @@
         });
       },
       update: function (data) {
-        this.material.uniforms.chroma.value = data.chroma;
+        this.material.uniforms.chroma.value    = data.chroma;
         this.material.uniforms.color.value.set(data.color);
-        this.material.transparent = data.transparent;
+        this.material.uniforms.threshold.value = data.threshold;
+        this.material.uniforms.falloff.value   = data.falloff;
+        this.material.transparent              = data.transparent;
       },
       vertexShader: [
         'varying vec2 vUv;',
@@ -70,12 +79,14 @@
         'uniform sampler2D myTexture;',
         'uniform vec3 color;',
         'uniform bool chroma;',
+        'uniform float threshold;',
+        'uniform float falloff;',
         'varying vec2 vUv;',
         'void main(void) {',
         '  vec3 tColor = texture2D(myTexture, vUv).rgb;',
         '  float a = 1.0;',
         '  if (chroma) {',
-        '    a = (length(tColor - color) - 0.75) * 7.0;',
+        '    a = (length(tColor - color) - threshold) * falloff;',
         '  }',
         '  gl_FragColor = vec4(tColor, a);',
         '}'
@@ -83,10 +94,15 @@
     });
   </script>
 
-  <!-- Weapon cycler: single tap zone cycles through N weapon videos.
-       State 0 = nothing visible. State k>0 = weapon k playing on loop.
-       Tap interrupts current weapon and jumps to the next.
-       Wraps back to state 0 after the last weapon. -->
+  <!-- Weapon cycler — TWO-PHASE per weapon:
+         Phase A (DRAWING) : video plays 0 -> midpoint, then pauses
+                             at "weapon drawn" frame.
+         Phase B (SHEATHING): on next tap, video resumes mid -> end,
+                             on `ended` we chain into Phase A of the
+                             next weapon (or back to IDLE if this was
+                             the last).
+       Taps during DRAWING / SHEATHING are ignored (no interrupt).
+  -->
   <script>
     AFRAME.registerComponent('weapon-cycler', {
       schema: {
@@ -94,36 +110,84 @@
         videoIds:  {type: 'array'}
       },
       init: function () {
-        this.state = 0;
+        this.state = 0;          // 0=idle, 1..N = which weapon is current
+        this.subState = 'idle';  // 'idle' | 'drawing' | 'drawn' | 'sheathing'
         this.weapons = this.data.weaponIds.map(id => document.getElementById(id));
         this.videos  = this.data.videoIds.map(id => document.getElementById(id));
 
-        // Pause all videos at start; they'll only play when shown.
-        this.videos.forEach(v => { try { v.pause(); v.currentTime = 0; } catch (e) {} });
-
-        this.el.addEventListener('click', () => {
-          // Hide + pause currently-visible weapon (if any).
-          if (this.state > 0) {
-            const i = this.state - 1;
-            this.weapons[i].setAttribute('visible', false);
-            try { this.videos[i].pause(); } catch (e) {}
-          }
-
-          // Advance: 0 -> 1 -> ... -> N -> 0 -> ...
-          this.state = (this.state + 1) % (this.weapons.length + 1);
-
-          if (this.state === 0) {
-            console.log('[weapon-cycler] state: 0 (nothing — cycle reset)');
-          } else {
-            const i = this.state - 1;
-            this.weapons[i].setAttribute('visible', true);
-            try {
-              this.videos[i].currentTime = 0;
-              this.videos[i].play().catch(e => console.warn('[weapon-cycler] play() rejected:', e));
-            } catch (e) { console.warn('[weapon-cycler] video error:', e); }
-            console.log('[weapon-cycler] state:', this.state, '→', this.weapons[i].id);
-          }
+        // Reset everything; loop must be OFF so we can listen for `ended`.
+        this.videos.forEach(v => {
+          try { v.pause(); v.currentTime = 0; v.loop = false; } catch (e) {}
         });
+
+        this.el.addEventListener('click', () => this.onTap());
+      },
+
+      onTap: function () {
+        if (this.subState === 'idle') {
+          this.startDrawing(1);
+        } else if (this.subState === 'drawn') {
+          this.startSheathing();
+        } else {
+          console.log('[weapon-cycler] tap ignored during', this.subState);
+        }
+      },
+
+      startDrawing: function (weaponNum) {
+        const idx = weaponNum - 1;
+        if (idx < 0 || idx >= this.weapons.length) {
+          this.state = 0; this.subState = 'idle';
+          return;
+        }
+        this.state = weaponNum;
+        this.subState = 'drawing';
+
+        const weapon = this.weapons[idx];
+        const video  = this.videos[idx];
+
+        weapon.setAttribute('visible', true);
+        try { video.currentTime = 0; } catch (e) {}
+
+        // Pause video at midpoint via a timeupdate listener.
+        const pauseAtMid = () => {
+          if (!video.duration) return;
+          if (video.currentTime >= video.duration / 2) {
+            video.pause();
+            video.removeEventListener('timeupdate', pauseAtMid);
+            this.subState = 'drawn';
+            console.log('[weapon-cycler] DRAWN weapon', this.state, 'paused at t=', video.currentTime.toFixed(2));
+          }
+        };
+        video.addEventListener('timeupdate', pauseAtMid);
+
+        video.play().catch(e => console.warn('[weapon-cycler] play() rejected:', e));
+        console.log('[weapon-cycler] DRAWING weapon', this.state);
+      },
+
+      startSheathing: function () {
+        const idx = this.state - 1;
+        const video  = this.videos[idx];
+        const weapon = this.weapons[idx];
+        this.subState = 'sheathing';
+
+        const onEnded = () => {
+          video.removeEventListener('ended', onEnded);
+          weapon.setAttribute('visible', false);
+          try { video.pause(); video.currentTime = 0; } catch (e) {}
+
+          if (this.state < this.weapons.length) {
+            // Chain into next weapon's draw phase.
+            this.startDrawing(this.state + 1);
+          } else {
+            this.state = 0;
+            this.subState = 'idle';
+            console.log('[weapon-cycler] cycle complete -> IDLE');
+          }
+        };
+        video.addEventListener('ended', onEnded);
+
+        video.play().catch(e => console.warn('[weapon-cycler] play() rejected:', e));
+        console.log('[weapon-cycler] SHEATHING weapon', this.state);
       }
     });
   </script>
@@ -141,18 +205,19 @@
     <a-assets>
       <img id="nara-base" src="assets/Targets/nara_knife_behind_back_transparent.png" crossorigin="anonymous">
 
-      <!-- Weapon videos. 1 & 2 are user-produced (green chroma bg per spec).
-           3 still uses a repo placeholder until the user provides it. -->
-      <video id="weapon-1-vid" src="assets/weapons/knife.mp4"  loop muted playsinline crossorigin="anonymous"></video>
-      <video id="weapon-2-vid" src="assets/weapons/gun.mp4"    loop muted playsinline crossorigin="anonymous"></video>
-      <video id="weapon-3-vid" src="assets/mask_red_back.mp4"  loop muted playsinline crossorigin="anonymous"></video>
+      <!-- User-produced weapon videos (black chroma bg). Note: spec called
+           for green #00FF00 but exported bg is black; shader threshold is
+           tightened to preserve dark parts of the weapons. -->
+      <video id="weapon-1-vid" src="assets/weapons/knife.mp4" muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-2-vid" src="assets/weapons/gun.mp4"   muted playsinline crossorigin="anonymous"></video>
+      <!-- Placeholder for weapon 3 (red bg, repo asset). Will be replaced. -->
+      <video id="weapon-3-vid" src="assets/mask_red_back.mp4" muted playsinline crossorigin="anonymous"></video>
     </a-assets>
 
     <a-camera position="0 4 10"></a-camera>
 
     <xrextras-named-image-target name="nara-poster">
 
-      <!-- Base Nara overlay (transparent PNG) -->
       <a-image
         src="#nara-base"
         width="1.0"
@@ -161,13 +226,11 @@
         material="opacity: 1.0; side: double">
       </a-image>
 
-      <!-- Weapon planes — full-frame size matching Nara base for pixel-accurate
-           positioning inside the video frame. All initially hidden. -->
       <a-entity
         id="weapon-1"
         visible="false"
         geometry="primitive: plane; width: 1.0; height: 1.126"
-        material="shader: chromakey; src: #weapon-1-vid; chroma: true; color: #00FF00"
+        material="shader: chromakey; src: #weapon-1-vid; chroma: true; color: #000000; threshold: 0.10; falloff: 20"
         position="0 0 0.005">
       </a-entity>
 
@@ -175,7 +238,7 @@
         id="weapon-2"
         visible="false"
         geometry="primitive: plane; width: 1.0; height: 1.126"
-        material="shader: chromakey; src: #weapon-2-vid; chroma: true; color: #00FF00"
+        material="shader: chromakey; src: #weapon-2-vid; chroma: true; color: #000000; threshold: 0.10; falloff: 20"
         position="0 0 0.005">
       </a-entity>
 
@@ -187,8 +250,6 @@
         position="0 0 0.005">
       </a-entity>
 
-      <!-- Single tap zone on the left side of the dress.
-           Tap cycles: nothing → weapon-1 → weapon-2 → weapon-3 → nothing → ... -->
       <a-plane
         class="clickable"
         id="tap-zone"
