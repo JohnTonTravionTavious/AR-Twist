@@ -243,7 +243,7 @@
         id="weapon-2"
         visible="false"
         geometry="primitive: plane; width: 1.0; height: 1.126"
-        material="shader: chromakey; src: #weapon-2-vid; chroma: true; color: #000000; threshold: 0.20; falloff: 20"
+        material="shader: chromakey; src: #weapon-2-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005">
       </a-entity>
 
@@ -251,18 +251,20 @@
         id="weapon-3"
         visible="false"
         geometry="primitive: plane; width: 1.0; height: 1.126"
-        material="shader: chromakey; src: #weapon-3-vid; chroma: true; color: #000000; threshold: 0.20; falloff: 20"
+        material="shader: chromakey; src: #weapon-3-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005">
       </a-entity>
 
+      <!-- Tap zone — fully transparent (opacity 0) but still raycaster-clickable
+           thanks to the .clickable class. Keep material with transparent:true
+           so it actually disappears visually but the geometry stays for hit-test. -->
       <a-plane
         class="clickable"
         id="tap-zone"
         position="-0.139 -0.187 0.010"
         width="0.248"
         height="0.293"
-        color="#d62828"
-        material="transparent: true; opacity: 0.30; side: double"
+        material="transparent: true; opacity: 0; side: double"
         weapon-cycler="weaponIds: weapon-1, weapon-2, weapon-3; videoIds: weapon-1-vid, weapon-2-vid, weapon-3-vid">
       </a-plane>
 
