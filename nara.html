@@ -84,6 +84,11 @@
         'varying vec2 vUv;',
         'void main(void) {',
         '  vec3 tColor = texture2D(myTexture, vUv).rgb;',
+        '  // Discard pure-black pixels (uninitialized video texture during',
+        '  // the brief moment between play() and the first frame arriving).',
+        '  // Without this, a white-chroma plane flashes opaque black during',
+        '  // weapon transitions.',
+        '  if (length(tColor) < 0.02) discard;',
         '  float a = 1.0;',
         '  if (chroma) {',
         '    a = (length(tColor - color) - threshold) * falloff;',
@@ -219,8 +224,8 @@
 
       <a-image
         src="#nara-base"
-        width="0.97"
-        height="1.092"
+        width="0.98"
+        height="1.103"
         position="0 0 0.001"
         material="opacity: 1.0; side: double">
       </a-image>
@@ -234,7 +239,7 @@
       <a-entity
         id="weapon-1"
         visible="false"
-        geometry="primitive: plane; width: 0.97; height: 1.092"
+        geometry="primitive: plane; width: 0.98; height: 1.103"
         material="shader: chromakey; src: #weapon-1-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005">
       </a-entity>
@@ -242,7 +247,7 @@
       <a-entity
         id="weapon-2"
         visible="false"
-        geometry="primitive: plane; width: 0.97; height: 1.092"
+        geometry="primitive: plane; width: 0.98; height: 1.103"
         material="shader: chromakey; src: #weapon-2-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005">
       </a-entity>
@@ -250,7 +255,7 @@
       <a-entity
         id="weapon-3"
         visible="false"
-        geometry="primitive: plane; width: 0.97; height: 1.092"
+        geometry="primitive: plane; width: 0.98; height: 1.103"
         material="shader: chromakey; src: #weapon-3-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005">
       </a-entity>
