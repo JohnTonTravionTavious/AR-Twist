@@ -141,13 +141,11 @@
     <a-assets>
       <img id="nara-base" src="assets/Targets/nara_knife_behind_back_transparent.png" crossorigin="anonymous">
 
-      <!-- PLACEHOLDER weapon videos (existing repo assets). Replace with your
-           own MP4s when ready. Each must have its chroma background set to
-           a single solid color matching the `color` attribute on the matching
-           <a-entity> below. -->
-      <video id="weapon-1-vid" src="assets/mask_green_back.mp4" loop muted playsinline crossorigin="anonymous"></video>
-      <video id="weapon-2-vid" src="assets/mask_blue_back.mp4"  loop muted playsinline crossorigin="anonymous"></video>
-      <video id="weapon-3-vid" src="assets/mask_red_back.mp4"   loop muted playsinline crossorigin="anonymous"></video>
+      <!-- Weapon videos. 1 & 2 are user-produced (green chroma bg per spec).
+           3 still uses a repo placeholder until the user provides it. -->
+      <video id="weapon-1-vid" src="assets/weapons/knife.mp4"  loop muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-2-vid" src="assets/weapons/gun.mp4"    loop muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-3-vid" src="assets/mask_red_back.mp4"  loop muted playsinline crossorigin="anonymous"></video>
     </a-assets>
 
     <a-camera position="0 4 10"></a-camera>
@@ -177,7 +175,7 @@
         id="weapon-2"
         visible="false"
         geometry="primitive: plane; width: 1.0; height: 1.126"
-        material="shader: chromakey; src: #weapon-2-vid; chroma: true; color: #0000FF"
+        material="shader: chromakey; src: #weapon-2-vid; chroma: true; color: #00FF00"
         position="0 0 0.005">
       </a-entity>
 
