@@ -244,9 +244,13 @@
         material="shader: chromakey; src: #weapon-6-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005"></a-entity>
 
+      <!-- Tap zone now covers the whole Nara figure (full-body trigger).
+           Centered on the figure's bbox (pixel (425.5, 527), i.e. 3D
+           (-0.020, -0.030)), with a small margin on top of the figure's
+           3D extent of 0.415 x 0.871 -> 0.46 x 0.92. -->
       <a-plane class="clickable" id="tap-zone"
-        position="-0.139 -0.187 0.030"
-        width="0.248" height="0.293"
+        position="-0.020 -0.030 0.030"
+        width="0.46" height="0.92"
         material="transparent: true; opacity: 0; side: double"
         weapon-cycler="
           weaponIds: weapon-1, weapon-2, weapon-3, weapon-4, weapon-5, weapon-6;
