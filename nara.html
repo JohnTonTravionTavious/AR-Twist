@@ -28,14 +28,75 @@
     window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded);
   </script>
 
-  <!--
-    Weapon cycler — 6 weapons in escalation order, loop back to idle:
-      scissors -> cutting_knife -> knife -> gun -> bomb -> grenade -> idle -> ...
-    Each weapon plays in 2 phases:
-      Phase A (draw)    : 0 -> midpoint, paused at "drawn"
-      Phase B (sheathe) : next tap, midpoint -> end, then chain to next.
-    Taps during animations are ignored.
-  -->
+  <!-- Chromakey shader (extended from b2renger example 05 — parameterized
+       threshold/falloff + discard of pure-black uninitialized texture). -->
+  <script>
+    AFRAME.registerShader('chromakey', {
+      schema: {
+        src:        {type: 'map'},
+        color:      {type: 'color',  default: '#FFFFFF'},
+        chroma:     {type: 'bool',   default: true},
+        threshold:  {type: 'number', default: 0.20},
+        falloff:    {type: 'number', default: 20.0},
+        transparent:{default: true}
+      },
+      init: function (data) {
+        const videoEl = data.src;
+        if (!videoEl) return;
+        const videoTexture = new THREE.VideoTexture(videoEl);
+        videoTexture.minFilter = THREE.LinearFilter;
+        this.material = new THREE.ShaderMaterial({
+          transparent: data.transparent,
+          uniforms: {
+            chroma:    {type: 'b', value: data.chroma},
+            color:     {type: 'c', value: new THREE.Color(data.color)},
+            threshold: {type: 'f', value: data.threshold},
+            falloff:   {type: 'f', value: data.falloff},
+            myTexture: {type: 't', value: videoTexture}
+          },
+          vertexShader: this.vertexShader,
+          fragmentShader: this.fragmentShader
+        });
+      },
+      update: function (data) {
+        this.material.uniforms.chroma.value = data.chroma;
+        this.material.uniforms.color.value.set(data.color);
+        this.material.uniforms.threshold.value = data.threshold;
+        this.material.uniforms.falloff.value = data.falloff;
+        this.material.transparent = data.transparent;
+      },
+      vertexShader: [
+        'varying vec2 vUv;',
+        'void main(void) {',
+        '  vUv = uv;',
+        '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'uniform sampler2D myTexture;',
+        'uniform vec3 color;',
+        'uniform bool chroma;',
+        'uniform float threshold;',
+        'uniform float falloff;',
+        'varying vec2 vUv;',
+        'void main(void) {',
+        '  vec3 tColor = texture2D(myTexture, vUv).rgb;',
+        '  // discard pure-black uninitialized-texture pixels (kills the',
+        '  // transient flash between weapon transitions).',
+        '  if (length(tColor) < 0.02) discard;',
+        '  float a = 1.0;',
+        '  if (chroma) {',
+        '    a = (length(tColor - color) - threshold) * falloff;',
+        '  }',
+        '  gl_FragColor = vec4(tColor, a);',
+        '}'
+      ].join('\n')
+    });
+  </script>
+
+  <!-- 6-weapon cycler. Order: scissors -> cutting_knife -> knife -> gun
+       -> bomb -> grenade -> idle -> ... Each weapon plays in 2 phases
+       (draw -> pause at midpoint; sheathe -> ended -> chain to next). -->
   <script>
     AFRAME.registerComponent('weapon-cycler', {
       schema: {
@@ -131,20 +192,20 @@
     <a-assets>
       <img id="nara-base" src="assets/Targets/nara_knife_behind_back_transparent.png" crossorigin="anonymous">
 
-      <!-- 6 weapons (WebM VP9 alpha — real transparent background, no chroma). -->
-      <video id="weapon-1-vid" src="assets/weapons/scissors.webm"      muted playsinline crossorigin="anonymous"></video>
-      <video id="weapon-2-vid" src="assets/weapons/cutting_knife.webm" muted playsinline crossorigin="anonymous"></video>
-      <video id="weapon-3-vid" src="assets/weapons/knife.webm"         muted playsinline crossorigin="anonymous"></video>
-      <video id="weapon-4-vid" src="assets/weapons/gun.webm"           muted playsinline crossorigin="anonymous"></video>
-      <video id="weapon-5-vid" src="assets/weapons/bomb.webm"          muted playsinline crossorigin="anonymous"></video>
-      <video id="weapon-6-vid" src="assets/weapons/grenade.webm"       muted playsinline crossorigin="anonymous"></video>
+      <!-- 6 weapons (MP4, alpha composited over pure white; the chroma
+           shader removes the white at render time). -->
+      <video id="weapon-1-vid" src="assets/weapons/scissors.mp4"      muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-2-vid" src="assets/weapons/cutting_knife.mp4" muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-3-vid" src="assets/weapons/knife.mp4"         muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-4-vid" src="assets/weapons/gun.mp4"           muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-5-vid" src="assets/weapons/bomb.mp4"          muted playsinline crossorigin="anonymous"></video>
+      <video id="weapon-6-vid" src="assets/weapons/grenade.mp4"       muted playsinline crossorigin="anonymous"></video>
     </a-assets>
 
     <a-camera position="0 4 10"></a-camera>
 
     <xrextras-named-image-target name="nara-poster">
 
-      <!-- Base Nara overlay (alpha PNG with 2 px erosion to hide bleed-through) -->
       <a-image
         src="#nara-base"
         width="0.98"
@@ -153,38 +214,36 @@
         material="opacity: 1.0; side: double">
       </a-image>
 
-      <!-- Weapon planes — alpha-aware standard material (no chroma needed) -->
       <a-entity id="weapon-1" visible="false"
         geometry="primitive: plane; width: 0.98; height: 1.103"
-        material="src: #weapon-1-vid; transparent: true; alphaTest: 0.01; side: double; shader: flat"
+        material="shader: chromakey; src: #weapon-1-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005"></a-entity>
 
       <a-entity id="weapon-2" visible="false"
         geometry="primitive: plane; width: 0.98; height: 1.103"
-        material="src: #weapon-2-vid; transparent: true; alphaTest: 0.01; side: double; shader: flat"
+        material="shader: chromakey; src: #weapon-2-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005"></a-entity>
 
       <a-entity id="weapon-3" visible="false"
         geometry="primitive: plane; width: 0.98; height: 1.103"
-        material="src: #weapon-3-vid; transparent: true; alphaTest: 0.01; side: double; shader: flat"
+        material="shader: chromakey; src: #weapon-3-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005"></a-entity>
 
       <a-entity id="weapon-4" visible="false"
         geometry="primitive: plane; width: 0.98; height: 1.103"
-        material="src: #weapon-4-vid; transparent: true; alphaTest: 0.01; side: double; shader: flat"
+        material="shader: chromakey; src: #weapon-4-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005"></a-entity>
 
       <a-entity id="weapon-5" visible="false"
         geometry="primitive: plane; width: 0.98; height: 1.103"
-        material="src: #weapon-5-vid; transparent: true; alphaTest: 0.01; side: double; shader: flat"
+        material="shader: chromakey; src: #weapon-5-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005"></a-entity>
 
       <a-entity id="weapon-6" visible="false"
         geometry="primitive: plane; width: 0.98; height: 1.103"
-        material="src: #weapon-6-vid; transparent: true; alphaTest: 0.01; side: double; shader: flat"
+        material="shader: chromakey; src: #weapon-6-vid; chroma: true; color: #FFFFFF; threshold: 0.20; falloff: 20"
         position="-0.0198 0.0858 0.005"></a-entity>
 
-      <!-- Single invisible tap zone (centered on dress, left side). -->
       <a-plane class="clickable" id="tap-zone"
         position="-0.139 -0.187 0.030"
         width="0.248" height="0.293"
