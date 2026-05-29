@@ -29,11 +29,8 @@
   </script>
 
   <!--
-    Weapon cycler — 6 weapons in escalation order:
-      scissors -> cutting_knife -> knife -> gun -> bomb -> grenade
-    After grenade sheathes, an "explosion" element flashes briefly to
-    conclude the loop, then we reset to IDLE.
-
+    Weapon cycler — 6 weapons in escalation order, loop back to idle:
+      scissors -> cutting_knife -> knife -> gun -> bomb -> grenade -> idle -> ...
     Each weapon plays in 2 phases:
       Phase A (draw)    : 0 -> midpoint, paused at "drawn"
       Phase B (sheathe) : next tap, midpoint -> end, then chain to next.
@@ -42,19 +39,14 @@
   <script>
     AFRAME.registerComponent('weapon-cycler', {
       schema: {
-        weaponIds:    {type: 'array'},
-        videoIds:     {type: 'array'},
-        explosionId:  {type: 'string', default: ''},
-        explosionMs:  {type: 'number', default: 1500}
+        weaponIds: {type: 'array'},
+        videoIds:  {type: 'array'}
       },
       init: function () {
         this.state = 0;
         this.subState = 'idle';
-        this.weapons   = this.data.weaponIds.map(id => document.getElementById(id));
-        this.videos    = this.data.videoIds.map(id => document.getElementById(id));
-        this.explosion = this.data.explosionId
-          ? document.getElementById(this.data.explosionId)
-          : null;
+        this.weapons = this.data.weaponIds.map(id => document.getElementById(id));
+        this.videos  = this.data.videoIds.map(id => document.getElementById(id));
 
         this.videos.forEach(v => {
           try { v.pause(); v.currentTime = 0; v.loop = false; } catch (e) {}
@@ -114,35 +106,14 @@
           if (this.state < this.weapons.length) {
             this.startDrawing(this.state + 1);
           } else {
-            // Last weapon just sheathed -> explosion -> idle.
-            this.triggerExplosion();
+            this.state = 0;
+            this.subState = 'idle';
+            console.log('[cycler] cycle complete -> IDLE');
           }
         };
         v.addEventListener('ended', onEnded);
         v.play().catch(e => console.warn('[cycler] play:', e));
         console.log('[cycler] SHEATHING', w.id);
-      },
-
-      triggerExplosion: function () {
-        if (this.explosion) {
-          this.explosion.setAttribute('visible', true);
-          // Optional: scale-up animation for cartoon effect
-          this.explosion.setAttribute(
-            'animation__pop',
-            'property: scale; from: 0.3 0.3 0.3; to: 1.5 1.5 1.5; dur: 400; easing: easeOutBack'
-          );
-        }
-        console.log('[cycler] EXPLOSION');
-        setTimeout(() => {
-          if (this.explosion) {
-            this.explosion.setAttribute('visible', false);
-            this.explosion.removeAttribute('animation__pop');
-            this.explosion.setAttribute('scale', '1 1 1');
-          }
-          this.state = 0;
-          this.subState = 'idle';
-          console.log('[cycler] cycle complete -> IDLE');
-        }, this.data.explosionMs);
       }
     });
   </script>
@@ -213,28 +184,14 @@
         material="src: #weapon-6-vid; transparent: true; alphaTest: 0.01; side: double; shader: flat"
         position="-0.0198 0.0858 0.005"></a-entity>
 
-      <!-- Explosion placeholder (cartoon BOOM text). Replace with a real
-           asset when available. Sits in front of everything. -->
-      <a-text id="explosion"
-        visible="false"
-        value="BOOM"
-        color="#ff2a00"
-        align="center"
-        position="0 0.05 0.020"
-        width="3"
-        font="exo2bold"></a-text>
-
-      <!-- Single invisible tap zone (centered on dress, left side).
-           Drives the cycler component. -->
+      <!-- Single invisible tap zone (centered on dress, left side). -->
       <a-plane class="clickable" id="tap-zone"
         position="-0.139 -0.187 0.030"
         width="0.248" height="0.293"
         material="transparent: true; opacity: 0; side: double"
         weapon-cycler="
           weaponIds: weapon-1, weapon-2, weapon-3, weapon-4, weapon-5, weapon-6;
-          videoIds:  weapon-1-vid, weapon-2-vid, weapon-3-vid, weapon-4-vid, weapon-5-vid, weapon-6-vid;
-          explosionId: explosion;
-          explosionMs: 1500"></a-plane>
+          videoIds:  weapon-1-vid, weapon-2-vid, weapon-3-vid, weapon-4-vid, weapon-5-vid, weapon-6-vid"></a-plane>
 
     </xrextras-named-image-target>
 
